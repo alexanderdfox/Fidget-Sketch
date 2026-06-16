@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+	<title>Universal Chromatic Absolute Tracer Matrix</title>
+	<style>
+		:root {
+			--bg-color: #040507;
+			--spinner-color: rgba(13, 14, 18, 0.5);
+			--bearing-bg: rgba(255, 255, 255, 0.95);
+			--accent-color: #ff9f43;
+			--master-color: #a855f7;
+		}
+
+		body {
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			background-color: var(--bg-color);
+			color: #fff;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: flex-start;
+			min-height: 100vh;
+			margin: 0;
+			overflow: hidden;
+			user-select: none;
+			-webkit-user-select: none;
+			touch-action: none; 
+		}
+
+		h1 {
+			margin: 10px 0 2px 0;
+			font-weight: 300;
+			letter-spacing: 2px;
+			text-align: center;
+			color: #f0f0f0;
+			pointer-events: none;
+			z-index: 10;
+			font-size: 1.4rem;
+		}
+
+		.status-banner {
+			background: rgba(255, 159, 67, 0.1);
+			padding: 8px 16px;
+			border-radius: 12px;
+			font-size: 11px;
+			color: var(--accent-color);
+			margin-bottom: 10px;
+			border: 1px solid rgba(255, 159, 67, 0.2);
+			letter-spacing: 0.5px;
+			text-align: center;
+			z-index: 110; 
+			max-width: 95%;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 6px;
+			box-sizing: border-box;
+		}
+
+		.plotter-controls-grid {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 10px;
+			justify-content: center;
+			background: rgba(0, 0, 0, 0.5);
+			padding: 6px 12px;
+			border-radius: 8px;
+			border: 1px solid rgba(255,255,255,0.1);
+		}
+
+		.node-ctrl-group {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			background: rgba(255,255,255,0.05);
+			padding: 3px 8px;
+			border-radius: 4px;
+			font-size: 10px;
+		}
+
+		.node-ctrl-group input[type="checkbox"] {
+			cursor: pointer;
+			margin: 0;
+		}
+
+		#drawing-canvas {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100vw;
+			height: 100vh;
+			pointer-events: none;
+			z-index: 100;
+		}
+
+		.spinner-container {
+			position: absolute;
+			width: 580px;
+			height: 580px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			z-index: 20;
+			transform-origin: center center;
+			will-change: transform;
+			cursor: grab;
+		}
+		.spinner-container:active { cursor: grabbing; }
+
+		.fidget-spinner {
+			position: absolute;
+			width: 100%;
+			height: 100%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			pointer-events: none; 
+		}
+
+		.spinner-wing {
+			position: absolute;
+			width: 155px;
+			height: 410px;
+			background: var(--spinner-color);
+			border-radius: 80px;
+			box-shadow: 0 0 35px rgba(0,0,0,0.6);
+			border: 2px solid rgba(24, 26, 36, 0.5);
+			backdrop-filter: blur(2px);
+		}
+		.wing1 { transform: rotate(0deg); }
+		.wing2 { transform: rotate(120deg); }
+		.wing3 { transform: rotate(240deg); }
+
+		.spinner-center-hub {
+			position: absolute;
+			width: 250px;
+			height: 250px;
+			background: var(--spinner-color);
+			border-radius: 50%;
+			box-shadow: 0 0 40px rgba(0,0,0,0.75);
+			z-index: 2;
+			border: 2px solid rgba(24, 26, 36, 0.5);
+			backdrop-filter: blur(2px);
+		}
+
+		.bearing {
+			position: absolute;
+			width: 215px;
+			height: 215px;
+			background: var(--bearing-bg);
+			border: 6px solid #2d3142;
+			border-radius: 50%;
+			color: #333;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			box-sizing: border-box;
+			padding: 12px;
+			box-shadow: inset 0 0 12px rgba(0,0,0,0.3), 0 8px 20px rgba(0,0,0,0.6);
+			z-index: 10;
+			transform-origin: center center;
+		}
+
+		.plotter-dot {
+			position: absolute;
+			width: 12px;
+			height: 12px;
+			background-color: #ff2a2a;
+			border-radius: 50%;
+			z-index: 50;
+			box-shadow: 0 0 8px #ff2a2a;
+			transition: opacity 0.2s ease, background-color 0.1s linear;
+		}
+		.plotter-dot.disabled-node {
+			background-color: #555555 !important;
+			box-shadow: none !important;
+			opacity: 0.3;
+		}
+
+		.no-flip {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			width: 100%;
+			height: 100%;
+			pointer-events: none;
+		}
+
+		.bearing-center { top: 50%; left: 50%; width: 235px; height: 235px; z-index: 20; border-color: var(--master-color); background: rgba(250, 249, 255, 0.95); box-shadow: inset 0 0 10px rgba(0,0,0,0.1), 0 0 30px rgba(168, 85, 247, 0.2); }
+		.bearing-top { top: 15px; left: 50%; margin-left: -107.5px; }
+		.bearing-bottom-right { bottom: 50px; right: 50px; }
+		.bearing-bottom-left { bottom: 50px; left: 50px; }
+
+		.bearing-telemetry {
+			font-family: monospace;
+			font-size: 11px;
+			font-weight: bold;
+			color: #222;
+			margin-top: 6px;
+			background: rgba(0,0,0,0.06);
+			padding: 4px 8px;
+			border-radius: 4px;
+			text-align: center;
+			width: 80%;
+		}
+
+		/* Dedicated inline input sizing */
+		.bearing-color-wheel {
+			border: none;
+			width: 32px;
+			height: 32px;
+			border-radius: 50%;
+			cursor: pointer;
+			background: none;
+			padding: 0;
+			margin-top: 8px;
+			pointer-events: auto; /* Overrides layout grid dead-zones */
+		}
+		.bearing-color-wheel::-webkit-color-swatch-wrapper { padding: 0; }
+		.bearing-color-wheel::-webkit-color-swatch { border: 2px solid #2d3142; border-radius: 50%; }
+
+		.label { font-size: 10px; color: #444; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; font-weight: 800; text-align: center;}
+
+		/* --- MOBILE HUD SYSTEM OVERLAYS --- */
+		.mobile-hud { position: fixed; bottom: 20px; z-index: 150; display: none; }
+		#hud-movement-dpad { left: 20px; width: 140px; height: 140px; background: rgba(30, 41, 59, 0.7); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 50%; backdrop-filter: blur(4px); position: fixed; }
+
+		.dpad-btn { position: absolute; width: 42px; height: 42px; background: #334155; border: 1px solid #475569; color: #fff; border-radius: 8px; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+		.dpad-btn:active { background: var(--accent-color); }
+		#btn-up    { top: 6px; left: 49px; }
+		#btn-down  { bottom: 6px; left: 49px; }
+		#btn-left  { top: 49px; left: 6px; }
+		#btn-right { top: 49px; right: 6px; }
+
+		#hud-rotation-panel { right: 20px; background: rgba(30, 41, 59, 0.7); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 16px; padding: 10px; backdrop-filter: blur(4px); display: flex; flex-direction: column; gap: 8px; align-items: center; width: 175px; box-sizing: border-box; }
+		.node-selector-row { display: flex; gap: 4px; width: 100%; pointer-events: auto; }
+		.selector-btn { flex: 1; padding: 8px 0; background: #475569; border: none; color: #fff; font-size: 11px; font-weight: bold; border-radius: 4px; cursor: pointer; }
+		.selector-btn.active { background: var(--master-color); box-shadow: 0 0 8px var(--master-color); }
+		.rotator-action-row { display: flex; gap: 6px; width: 100%; pointer-events: auto; }
+		.action-btn { flex: 1; padding: 10px 0; background: #1e293b; border: 1px solid #475569; color: #fff; font-size: 13px; font-weight: bold; border-radius: 6px; cursor: pointer; }
+		.action-btn:active { background: var(--accent-color); }
+
+		#btn-draw-toggle { width: 100%; padding: 8px 0; background: #ef4444; border: none; color: #fff; font-weight: bold; border-radius: 6px; font-size: 11px; text-transform: uppercase; cursor: pointer; pointer-events: auto; }
+		#btn-draw-toggle.drawing-active { background: #10b981; box-shadow: 0 0 10px #10b981; }
+	</style>
+</head>
+<body>
+
+	<h1>Chromatic Tracer Matrix</h1>
+	<div class="status-banner">
+		<span id="banner-text">Drag Frame | WASD: Spin Bearings | Space: Paint | Pinch / Scroll Wheel: Scale Size</span>
+		<div class="plotter-controls-grid">
+			<div class="node-ctrl-group">
+				<input type="checkbox" id="chk-draw-core" checked onchange="syncPlotterState('core', this.checked)">
+				<span>Node 1 Active</span>
+			</div>
+			<div class="node-ctrl-group">
+				<input type="checkbox" id="chk-draw-b1" checked onchange="syncPlotterState('b1', this.checked)">
+				<span>Node 2 Active</span>
+			</div>
+			<div class="node-ctrl-group">
+				<input type="checkbox" id="chk-draw-b2" checked onchange="syncPlotterState('b2', this.checked)">
+				<span>Node 3 Active</span>
+			</div>
+			<div class="node-ctrl-group">
+				<input type="checkbox" id="chk-draw-b3" checked onchange="syncPlotterState('b3', this.checked)">
+				<span>Node 4 Active</span>
+			</div>
+		</div>
+	</div>
+
+	<canvas id="drawing-canvas"></canvas>
+
+	<div class="mobile-hud" id="hud-movement-dpad">
+		<div class="dpad-btn" id="btn-up">▲</div>
+		<div class="dpad-btn" id="btn-left">◀</div>
+		<div class="dpad-btn" id="btn-right">▶</div>
+		<div class="dpad-btn" id="btn-down">▼</div>
+	</div>
+
+	<div class="mobile-hud" id="hud-rotation-panel">
+		<span style="font-size: 9px; font-weight: bold; color:#94a3b8;">NODE CONTROL WHEEL</span>
+		<div class="node-selector-row">
+			<button class="selector-btn active" data-node="core">1</button>
+			<button class="selector-btn" data-node="b1">2</button>
+			<button class="selector-btn" data-node="b2">3</button>
+			<button class="selector-btn" data-node="b3">4</button>
+		</div>
+		<div class="rotator-action-row">
+			<button class="action-btn" id="btn-rot-ccw">↺ Spin</button>
+			<button class="action-btn" id="btn-rot-cw">↻ Spin</button>
+		</div>
+		<button id="btn-draw-toggle" onclick="toggleMobileDrawing()">🖌️ Draw: OFF</button>
+	</div>
+
+	<div class="spinner-container" id="master-stage">
+		<div class="fidget-spinner">
+			<div class="spinner-wing wing1"></div>
+			<div class="spinner-wing wing2"></div>
+			<div class="spinner-wing wing3"></div>
+			<div class="spinner-center-hub"></div>
+		</div>
+
+		<div class="bearing bearing-center" id="node-core" style="position: absolute; left: 50%; top: 50%; margin-left:-117.5px; margin-top:-117.5px;">
+			<div class="plotter-dot" id="dot-core"></div>
+			<div class="no-flip" id="core-flip">
+				<span class="label" style="color: var(--master-color);">1. Core Master Node</span>
+				<div class="bearing-telemetry">Heading: <span id="rot-t1">0°</span></div>
+				<input type="color" class="bearing-color-wheel" id="wheel-core" value="#ff2a2a" onchange="updateNodeColor('core', this.value)">
+			</div>
+		</div>
+
+		<div class="bearing bearing-top" id="node-b1">
+			<div class="plotter-dot" id="dot-b1"></div>
+			<div class="no-flip" id="b1-flip">
+				<span class="label">2. Auxiliary Node</span>
+				<div class="bearing-telemetry">Heading: <span id="rot-t2">0°</span></div>
+				<input type="color" class="bearing-color-wheel" id="wheel-b1" value="#3b82f6" onchange="updateNodeColor('b1', this.value)">
+			</div>
+		</div>
+
+		<div class="bearing bearing-bottom-right" id="node-b2">
+			<div class="plotter-dot" id="dot-b2"></div>
+			<div class="no-flip" id="b2-flip">
+				<span class="label">3. Auxiliary Node</span>
+				<div class="bearing-telemetry">Heading: <span id="rot-t3">0°</span></div>
+				<input type="color" class="bearing-color-wheel" id="wheel-b2" value="#10b981" onchange="updateNodeColor('b2', this.value)">
+			</div>
+		</div>
+
+		<div class="bearing bearing-bottom-left" id="node-b3">
+			<div class="plotter-dot" id="dot-b3"></div>
+			<div class="no-flip" id="b3-flip">
+				<span class="label">4. Auxiliary Node</span>
+				<div class="bearing-telemetry">Heading: <span id="rot-t4">0°</span></div>
+				<input type="color" class="bearing-color-wheel" id="wheel-b3" value="#eab308" onchange="updateNodeColor('b3', this.value)">
+			</div>
+		</div>
+	</div>
+
+	<script>
+		const canvas = document.getElementById('drawing-canvas');
+		const ctx = canvas.getContext('2d');
+		const stage = document.getElementById('master-stage');
+
+		function resizeCanvas() {
+			const temp = document.createElement('canvas');
+			temp.width = canvas.width; temp.height = canvas.height;
+			temp.getContext('2d').drawImage(canvas, 0, 0);
+			canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+			ctx.drawImage(temp, 0, 0);
+		}
+		window.addEventListener('resize', resizeCanvas);
+		resizeCanvas();
+
+		function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+
+		// Hardware Accelerometer Shake Detection
+		let lastX = null, lastY = null, lastZ = null, shakeThreshold = 15;
+		function handleMotion(event) {
+			let acc = event.accelerationIncludingGravity;
+			if (!acc || acc.x === null) return;
+			if (lastX !== null) {
+				let dX = Math.abs(lastX - acc.x), dY = Math.abs(lastY - acc.y), dZ = Math.abs(lastZ - acc.z);
+				if ((dX > shakeThreshold && dY > shakeThreshold) || (dX > shakeThreshold && dZ > shakeThreshold) || (dY > shakeThreshold && dZ > shakeThreshold)) {
+					clearCanvas();
+				}
+			}
+			lastX = acc.x; lastY = acc.y; lastZ = acc.z;
+		}
+		if (window.DeviceMotionEvent) {
+			if (typeof DeviceMotionEvent.requestPermission === 'function') {
+				window.addEventListener('touchstart', () => {
+					DeviceMotionEvent.requestPermission().then(res => { if (res === 'granted') window.addEventListener('devicemotion', handleMotion); });
+				}, { once: true });
+			} else { window.addEventListener('devicemotion', handleMotion); }
+		}
+
+		// --- GLOBAL MATRIX SYSTEM STATE ---
+		let globalScale = (window.innerWidth < 768) ? 0.65 : 1.0;
+		let globalRotation = 0;
+		let stagePos = { x: window.innerWidth / 2 - 290, y: window.innerHeight / 2 - 290 };
+
+		let physicsMap = {
+			"core": { id: "node-core", dotId: "dot-core", angle: 0, flipId: "core-flip", radius: 117.5, allowedToDraw: true, color: "#ff2a2a", isCenter: true, rotId: "rot-t1" },
+			"b1":   { id: "node-b1",   dotId: "dot-b1",   angle: 0, flipId: "b1-flip",   radius: 107.5, allowedToDraw: true, color: "#3b82f6", isCenter: false, rotId: "rot-t2" },
+			"b2":   { id: "node-b2",   dotId: "dot-b2",   angle: 0, flipId: "b2-flip",   radius: 107.5, allowedToDraw: true, color: "#10b981", isCenter: false, rotId: "rot-t3" },
+			"b3":   { id: "node-b3",   dotId: "dot-b3",   angle: 0, flipId: "b3-flip",   radius: 107.5, allowedToDraw: true, color: "#eab308", isCenter: false, rotId: "rot-t4" }
+		};
+
+		let activeKeys = {};
+		let mobileSelectedNode = 'core';
+		let mobileDrawingActive = false;
+
+		document.addEventListener('keydown', (e) => { activeKeys[e.key] = true; });
+		document.addEventListener('keyup', (e) => { activeKeys[e.key] = false; });
+
+		// --- UNIFIED CONTROLS (MOUSE MESH & ISOLATED HUD DEADBANDS) ---
+		let isDragging = false, dragStart = { x: 0, y: 0 }, stageStart = { x: 0, y: 0 };
+		let baseTouchDistance = 0, baseTouchAngle = 0, baseScale = 1.0, baseGlobalRotation = 0;
+
+		function initializePointerInteractions() {
+			// Mouse Drag Action Handling Hooks
+			stage.addEventListener('mousedown', (e) => {
+				if(e.target.closest('input') || e.target.closest('button')) return; 
+				isDragging = true;
+				dragStart.x = e.clientX; dragStart.y = e.clientY;
+				stageStart.x = stagePos.x; stageStart.y = stagePos.y;
+			});
+
+			window.addEventListener('mousemove', (e) => {
+				if (!isDragging) return;
+				stagePos.x = stageStart.x + (e.clientX - dragStart.x);
+				stagePos.y = stageStart.y + (e.clientY - dragStart.y);
+			});
+
+			window.addEventListener('mouseup', () => { isDragging = false; });
+
+			window.addEventListener('wheel', (e) => {
+				globalScale = Math.max(0.2, Math.min(3.0, globalScale - e.deltaY * 0.001));
+			}, { passive: true });
+
+			// Cross-Browser Mobile Touch Engine Implementation
+			if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+				document.querySelectorAll('.mobile-hud').forEach(el => el.style.display = 'block');
+				setupMobileButtonEvents();
+
+				window.addEventListener('touchstart', (e) => {
+					if(e.target.closest('input') || e.target.closest('button') || e.target.closest('.status-banner')) return;
+					if (e.touches.length === 1) {
+						isDragging = true;
+						dragStart.x = e.touches[0].clientX; dragStart.y = e.touches[0].clientY;
+						stageStart.x = stagePos.x; stageStart.y = stagePos.y;
+					} else if (e.touches.length === 2) {
+						isDragging = false; 
+						baseTouchDistance = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+						baseTouchAngle = Math.atan2(e.touches[1].clientY - e.touches[0].clientY, e.touches[1].clientX - e.touches[0].clientX);
+						baseScale = globalScale;
+						baseGlobalRotation = globalRotation;
+					}
+				}, { passive: false });
+
+				window.addEventListener('touchmove', (e) => {
+					if (e.touches.length === 1 && isDragging) {
+						stagePos.x = stageStart.x + (e.touches[0].clientX - dragStart.x);
+						stagePos.y = stageStart.y + (e.touches[0].clientY - dragStart.y);
+					} else if (e.touches.length === 2) {
+						e.preventDefault();
+						let currentDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+						if (baseTouchDistance > 0) {
+							globalScale = Math.max(0.3, Math.min(2.5, baseScale * (currentDist / baseTouchDistance)));
+						}
+						let currentAngle = Math.atan2(e.touches[1].clientY - e.touches[0].clientY, e.touches[1].clientX - e.touches[0].clientX);
+						globalRotation = baseGlobalRotation + ((currentAngle - baseTouchAngle) * 180 / Math.PI);
+					}
+				}, { passive: false });
+
+				window.addEventListener('touchend', () => { isDragging = false; baseTouchDistance = 0; });
+			}
+			
+			// Seed base configuration color fields
+			Object.keys(physicsMap).forEach(k => updateNodeColor(k, physicsMap[k].color));
+		}
+
+		function setupMobileButtonEvents() {
+			// Setup movement directional pads
+			const bindTouch = (id, key) => {
+				const btn = document.getElementById(id);
+				btn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); activeKeys[key] = true; }, {passive: false});
+				btn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); activeKeys[key] = false; }, {passive: false});
+			};
+			bindTouch('btn-up', 'ArrowUp'); bindTouch('btn-down', 'ArrowDown');
+			bindTouch('btn-left', 'ArrowLeft'); bindTouch('btn-right', 'ArrowRight');
+
+			// Explicitly fixed interactive node selector click mappings
+			document.querySelectorAll('.selector-btn').forEach(button => {
+				button.addEventListener('touchstart', (e) => {
+					e.preventDefault();
+					e.stopPropagation();
+					mobileSelectedNode = button.getAttribute('data-node');
+					document.querySelectorAll('.selector-btn').forEach(b => b.classList.remove('active'));
+					button.classList.add('active');
+				}, {passive: false});
+			});
+
+			// Spin action handling parameters
+			document.getElementById('btn-rot-ccw').addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); activeKeys['mobile_ccw'] = true; }, {passive: false});
+			document.getElementById('btn-rot-ccw').addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); activeKeys['mobile_ccw'] = false; }, {passive: false});
+			document.getElementById('btn-rot-cw').addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); activeKeys['mobile_cw'] = true; }, {passive: false});
+			document.getElementById('btn-rot-cw').addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); activeKeys['mobile_cw'] = false; }, {passive: false});
+		}
+
+		function syncPlotterState(nodeKey, isEnabled) {
+			physicsMap[nodeKey].allowedToDraw = isEnabled;
+			const dot = document.getElementById(physicsMap[nodeKey].dotId);
+			if (isEnabled) dot.classList.remove('disabled-node');
+			else dot.classList.add('disabled-node');
+		}
+
+		function updateNodeColor(nodeKey, hexValue) {
+			physicsMap[nodeKey].color = hexValue;
+			// Mirror color values dynamically across color wheels inside bearings and drawing pointers
+			const dot = document.getElementById(physicsMap[nodeKey].dotId);
+			if(dot) {
+				dot.style.backgroundColor = hexValue;
+				dot.style.boxShadow = `0 0 10px ${hexValue}`;
+			}
+			const localWheel = document.getElementById(`wheel-${nodeKey}`);
+			if(localWheel) localWheel.value = hexValue;
+		}
+
+		function toggleMobileDrawing() {
+			mobileDrawingActive = !mobileDrawingActive;
+			const btn = document.getElementById('btn-draw-toggle');
+			btn.innerText = mobileDrawingActive ? "🖌️ Draw: ON" : "🖌️ Draw: OFF";
+			btn.className = mobileDrawingActive ? "drawing-active" : "";
+		}
+
+		// --- PIPELINE CALCULATOR RUNTIME ENGINE ---
+		let lastPlotterPositions = {};
+
+		function processInputsAndLogic() {
+			const moveSpeed = 5, turnSpeed = 3;
+
+			if (activeKeys['ArrowUp'])    stagePos.y -= moveSpeed;
+			if (activeKeys['ArrowDown'])  stagePos.y += moveSpeed;
+			if (activeKeys['ArrowLeft'])  stagePos.x -= moveSpeed;
+			if (activeKeys['ArrowRight']) stagePos.x += moveSpeed;
+
+			if (activeKeys['w'] || activeKeys['W']) physicsMap.core.angle += turnSpeed;
+			if (activeKeys['a'] || activeKeys['A']) physicsMap.b1.angle += turnSpeed;
+			if (activeKeys['s'] || activeKeys['S']) physicsMap.b2.angle += turnSpeed;
+			if (activeKeys['d'] || activeKeys['D']) physicsMap.b3.angle += turnSpeed;
+
+			if (activeKeys['mobile_ccw']) physicsMap[mobileSelectedNode].angle -= turnSpeed;
+			if (activeKeys['mobile_cw'])  physicsMap[mobileSelectedNode].angle += turnSpeed;
+
+			if (activeKeys['q'] || activeKeys['Q']) globalRotation -= 1.5;
+			if (activeKeys['e'] || activeKeys['E']) globalRotation += 1.5;
+			if (activeKeys['r'] || activeKeys['R']) globalScale = Math.min(2.5, globalScale + 0.02);
+			if (activeKeys['f'] || activeKeys['F']) globalScale = Math.max(0.3, globalScale - 0.02);
+
+			stage.style.left = `${stagePos.x}px`;
+			stage.style.top = `${stagePos.y}px`;
+			stage.style.transform = `scale(${globalScale}) rotate(${globalRotation}deg)`;
+
+			Object.keys(physicsMap).forEach(key => {
+				const node = physicsMap[key];
+				
+				let degAngle = Math.floor(node.angle % 360); if (degAngle < 0) degAngle += 360;
+				document.getElementById(node.rotId).innerText = `${degAngle}°`;
+				
+				// Native translation loop fixes flashing layer bugs inside touch engines
+				document.getElementById(node.flipId).style.transform = `rotate(${node.angle}deg)`;
+
+				const sampleAngleDeg = node.angle + 10;
+				const sampleAngleRad = (sampleAngleDeg * Math.PI) / 180;
+				const targetPlotRadius = node.radius - 5; 
+				
+				const dotLocalX = node.radius + targetPlotRadius * Math.cos(sampleAngleRad);
+				const dotLocalY = node.radius + targetPlotRadius * Math.sin(sampleAngleRad);
+
+				document.getElementById(node.dotId).style.left = `${dotLocalX - 6}px`;
+				document.getElementById(node.dotId).style.top = `${dotLocalY - 6}px`;
+
+				// Transformed absolute spatial coordinate extraction module
+				const centerStageOffsetX = 290, centerStageOffsetY = 290;
+				const nodeElement = document.getElementById(node.id);
+				
+				let localOriginX = dotLocalX;
+				let localOriginY = dotLocalY;
+
+				if (node.isCenter) {
+					localOriginX = 290 + (dotLocalX - 117.5);
+					localOriginY = 290 + (dotLocalY - 117.5);
+				} else {
+					localOriginX = nodeElement.offsetLeft + dotLocalX;
+					localOriginY = nodeElement.offsetTop + dotLocalY;
+				}
+
+				const parentLocalX = localOriginX - centerStageOffsetX;
+				const parentLocalY = localOriginY - centerStageOffsetY;
+
+				const globalRad = (globalRotation * Math.PI) / 180;
+				const rotatedX = parentLocalX * Math.cos(globalRad) - parentLocalY * Math.sin(globalRad);
+				const rotatedY = parentLocalX * Math.sin(globalRad) + parentLocalY * Math.cos(globalRad);
+
+				const absoluteX = (stagePos.x + centerStageOffsetX) + (rotatedX * globalScale);
+				const absoluteY = (stagePos.y + centerStageOffsetY) + (rotatedY * globalScale);
+
+				// Chromatic Paint Path Renderer Loop
+				if ((activeKeys[' '] || mobileDrawingActive) && node.allowedToDraw) {
+					if (lastPlotterPositions[key]) {
+						ctx.beginPath();
+						ctx.strokeStyle = node.color;
+						ctx.lineWidth = 4;
+						ctx.lineCap = 'round';
+						ctx.moveTo(lastPlotterPositions[key].x, lastPlotterPositions[key].y);
+						ctx.lineTo(absoluteX, absoluteY);
+						ctx.stroke();
+					}
+				}
+				lastPlotterPositions[key] = { x: absoluteX, y: absoluteY };
+			});
+
+			requestAnimationFrame(processInputsAndLogic);
+		}
+
+		window.onload = () => { 
+			initializePointerInteractions();
+			requestAnimationFrame(processInputsAndLogic); 
+		};
+	</script>
+</body>
+</html>
